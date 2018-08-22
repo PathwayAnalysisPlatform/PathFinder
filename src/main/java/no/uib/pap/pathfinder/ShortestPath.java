@@ -113,11 +113,15 @@ public class ShortestPath {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
+        if (!crashed) {
+            wrap();
+        }
     }
 
     /**
      * Stores the seed matrix in the main matrix.
-     * 
+     *
      * @param seedPathFile the seed matrix
      * @param origin the origin vertex of this seed
      */
@@ -156,39 +160,35 @@ public class ShortestPath {
 
         }
     }
-    
+
     /**
      * Builds the final file from the temp file.
-     * 
-     * @return the mapped file containing the shortest paths
      */
-    public PathFile wrapFile() {
-        
+    private void wrap() {
+
         File resultFile = new File(filePath);
         PathFile pathFile = new PathFile(resultFile, nVertices);
-        
-        for (int j = 1 ; j < nVertices ; j++) {
-            
-            for (int i = 0 ; i < j ; i++) {
-                
+
+        for (int j = 1; j < nVertices; j++) {
+
+            for (int i = 0; i < j; i++) {
+
                 Path path = tempPathFile.getPath(i, j);
-                
+
                 if (path == null) {
-                    
+
                     throw new IllegalArgumentException("Missing path between " + i + " and " + j + ".");
-                    
+
                 }
-                
+
                 pathFile.setPath(path);
-                
+
             }
         }
-        
+
         tempPathFile.close();
         tempFile.delete();
-        
-        return pathFile;
-        
+
     }
 
     /**
@@ -243,7 +243,7 @@ public class ShortestPath {
                 }
 
                 storeSeedMatrix(seedPathFile, origin);
-                
+
                 processedIndexes.add(origin);
 
                 seedPathFile.close();

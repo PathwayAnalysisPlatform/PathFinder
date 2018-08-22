@@ -6,11 +6,10 @@ import java.util.concurrent.TimeoutException;
 import junit.framework.Assert;
 import junit.framework.TestCase;
 import no.uib.pap.pathfinder.ShortestPath;
+import no.uib.pap.pathfinder.api.PathProvider;
 import no.uib.pap.pathfinder.io.network.NetworkPool;
-import no.uib.pap.pathfinder.io.path.PathFile;
 import no.uib.pap.pathfinder.model.graph.Graph;
 import no.uib.pap.pathfinder.model.graph.Path;
-import sun.swing.FilePane;
 
 /**
  * This class tests that the distance estimation is the same as obtained with iGraph.
@@ -29,13 +28,13 @@ public class DistanceTest extends TestCase {
         
         double[][] weights = getIgraphResults();
         
-        PathFile pathFile = shortestPath.wrapFile();
+        PathProvider pathProvider = new PathProvider(testFile);
 
         for (int i = 0; i < testGraph.vertices.length; i++) {
             
             for (int j = 0; j < testGraph.vertices.length; j++) {
 
-                Path path = pathFile.getPath(i, j);
+                Path path = pathProvider.getPath(i, j);
 
                 if (i == j) {
 

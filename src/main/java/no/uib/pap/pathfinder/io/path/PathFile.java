@@ -5,6 +5,7 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import static no.uib.pap.pathfinder.io.path.PathFileUtils.getIndex;
 import static no.uib.pap.pathfinder.io.util.MemoryMappedFileUtils.closeBuffer;
 import no.uib.pap.pathfinder.model.graph.Path;
 
@@ -20,7 +21,7 @@ public class PathFile {
      */
     private final RandomAccessFile raf;
     /**
-     * The channel to the output file.
+     * The channel to the file.
      */
     private final FileChannel fc;
     /**
@@ -50,35 +51,27 @@ public class PathFile {
 
             Arrays.fill(indexes, -1l);
 
+            int size = 8 * (nPath + 1) + 4;
+
+            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_WRITE, currentIndex, size);
+
+            buffer.putInt(nPath);
+
+            for (int i = 0; i < nPath + 1; i++) {
+
+                buffer.putLong(indexes[i]);
+
+            }
+
+            closeBuffer(buffer);
+
+            currentIndex += size;
+
         } catch (Exception e) {
 
             throw new RuntimeException(e);
 
         }
-    }
-
-    /**
-     * Returns the index where to save the path.
-     *
-     * @param from the index of the first vertex in the path
-     * @param to the index of the last vertex in the path
-     *
-     * @return the index where to save the path
-     */
-    public int getIndex(int from, int to) {
-
-        int low, high;
-
-        if (from < to) {
-            low = from;
-            high = to;
-        } else {
-            low = to;
-            high = from;
-        }
-
-        return high * (high - 1) / 2 + low;
-
     }
 
     /**
@@ -91,32 +84,9 @@ public class PathFile {
      */
     public Path getPath(int from, int to) {
 
-        if (from == to) {
-            return null;
-        }
-
         try {
 
-            int pathIndex = getIndex(from, to);
-            long startIndex = indexes[pathIndex];
-            int size = (int) (indexes[pathIndex+1] - startIndex);
-
-            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, startIndex, size);
-
-            double weight = buffer.getDouble();
-
-            int nVertices = buffer.getInt();
-
-            int[] pathIndexes = new int[nVertices];
-
-            for (int i = 0; i < nVertices; i++) {
-
-                int vertex = buffer.getInt();
-                pathIndexes[i] = vertex;
-
-            }
-
-            return new Path(pathIndexes, weight);
+            return PathFileUtils.getPath(from, to, indexes, fc);
 
         } catch (Exception e) {
 
@@ -143,13 +113,13 @@ public class PathFile {
             int size = 8 + 4 + 4 * nIndexes;
 
             int pathIndex = getIndex(pathIndexes[0], pathIndexes[nIndexes - 1]);
-            indexes[pathIndex] = index;
-            indexes[pathIndex + 1] = index + size;
+            setIndex(pathIndex, index);
+            setIndex(pathIndex + 1, index + size);
 
             MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_WRITE, index, size);
 
             buffer.putDouble(path.getWeight());
-            
+
             buffer.putInt(nIndexes);
 
             for (int i = 0; i < nIndexes; i++) {
@@ -157,7 +127,7 @@ public class PathFile {
                 buffer.putInt(pathIndexes[i]);
 
             }
-            
+
             closeBuffer(buffer);
 
             currentIndex += size;
@@ -167,6 +137,32 @@ public class PathFile {
             throw new RuntimeException(e);
 
         }
+    }
+
+    /**
+     * Sets the index of a path to the array of indexes and to the file.
+     * 
+     * @param pathIndex the index of the path
+     * @param index the index in the file
+     */
+    public void setIndex(int pathIndex, long index) {
+
+        try {
+
+            indexes[pathIndex] = index;
+
+            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_WRITE, 4 + 8 * pathIndex, 8);
+
+            buffer.putLong(index);
+
+            closeBuffer(buffer);
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(e);
+
+        }
+
     }
 
     /**
