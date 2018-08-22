@@ -1,5 +1,6 @@
 package no.uib.pap.pathfinder.api;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -12,9 +13,13 @@ import no.uib.pap.pathfinder.model.graph.Path;
 /**
  * This class provides the shortest path based on a file created by PathFile.
  *
+ * Note: the connection to the file seems to remain open for a bit of time after
+ * calling close. This might result eg in files not being deleted. gc and waiting
+ * seem to help.
+ *
  * @author Marc Vaudel
  */
-public class PathProvider {
+public class PathProvider implements Closeable {
 
     /**
      * The random access file.
@@ -79,6 +84,14 @@ public class PathProvider {
     public Path getPath(int from, int to) throws IOException {
 
         return PathFileUtils.getPath(from, to, indexes, fc);
+    }
+
+    @Override
+    public void close() throws IOException {
+
+        // Close connections to the file
+        fc.close();
+        raf.close();
     }
 
 }

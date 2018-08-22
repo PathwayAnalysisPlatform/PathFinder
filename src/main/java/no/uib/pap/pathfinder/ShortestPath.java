@@ -187,7 +187,26 @@ public class ShortestPath {
         }
 
         tempPathFile.close();
-        tempFile.delete();
+        pathFile.close();
+
+        System.gc();
+
+        try {
+
+            wait(10);
+
+        } catch (Exception e) {
+            // Ignore
+        }
+
+        boolean success = tempFile.delete();
+
+        if (!success) {
+
+            System.out.println("Failed to delete " + tempFile + ".");
+            tempFile.deleteOnExit();
+
+        }
 
     }
 
@@ -247,9 +266,25 @@ public class ShortestPath {
                 processedIndexes.add(origin);
 
                 seedPathFile.close();
-                seedFilePath.delete();
 
                 System.gc();
+
+                try {
+
+                    wait(10);
+
+                } catch (Exception e) {
+                    // Ignore
+                }
+
+                boolean success = seedFilePath.delete();
+
+                if (!success) {
+
+                    System.out.println("Failed to delete " + seedFilePath + ".");
+                    seedFilePath.deleteOnExit();
+
+                }
 
                 int tempProgress = (int) (1000.0 * ((double) origin) / nVertices);
                 if (tempProgress > progress) {

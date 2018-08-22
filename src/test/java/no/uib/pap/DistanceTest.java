@@ -12,47 +12,65 @@ import no.uib.pap.pathfinder.model.graph.Graph;
 import no.uib.pap.pathfinder.model.graph.Path;
 
 /**
- * This class tests that the distance estimation is the same as obtained with iGraph.
+ * This class tests that the distance estimation is the same as obtained with
+ * iGraph.
  *
  * @author Marc Vaudel
  */
 public class DistanceTest extends TestCase {
 
-    public void testDistances() throws IOException, InterruptedException, TimeoutException {
+    public synchronized void testDistances() throws IOException, InterruptedException, TimeoutException {
 
         Graph testGraph = NetworkPool.getTestGraph();
 
         File testFile = new File("src/test/resources/testPath");
         ShortestPath shortestPath = new ShortestPath(testGraph, testFile);
-        shortestPath.computeMatrix(1);
-        
+        shortestPath.computeMatrix(2);
+
         double[][] weights = getIgraphResults();
-        
-        PathProvider pathProvider = new PathProvider(testFile);
 
-        for (int i = 0; i < testGraph.vertices.length; i++) {
-            
-            for (int j = 0; j < testGraph.vertices.length; j++) {
+        try (PathProvider pathProvider = new PathProvider(testFile)) {
 
-                Path path = pathProvider.getPath(i, j);
+            for (int i = 0; i < testGraph.vertices.length; i++) {
 
-                if (i == j) {
+                for (int j = 0; j < testGraph.vertices.length; j++) {
 
-                    Assert.assertTrue(path == null);
+                    Path path = pathProvider.getPath(i, j);
 
-                } else {
+                    if (i == j) {
 
-                    double error = Math.abs(path.getWeight() - weights[i][j]);
-                    Assert.assertTrue(error < 0.001);
+                        Assert.assertTrue(path == null);
 
+                    } else {
+
+                        double error = Math.abs(path.getWeight() - weights[i][j]);
+                        Assert.assertTrue(error < 0.001);
+
+                    }
                 }
             }
+        }
+
+        System.gc();
+
+        try {
+            wait(20);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        boolean success = testFile.delete();
+
+        if (!success) {
+
+            testFile.deleteOnExit();
+
         }
     }
 
     /**
      * Returns the iGraph results.
-     * 
+     *
      * @return the iGraph results
      */
     private double[][] getIgraphResults() {

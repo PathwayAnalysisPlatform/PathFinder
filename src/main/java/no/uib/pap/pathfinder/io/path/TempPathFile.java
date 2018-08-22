@@ -90,7 +90,8 @@ public class TempPathFile {
         if (from > to) {
 
             Path reversePath = getPath(to, from);
-            return reversePath.reverse();
+            
+            return reversePath == null ? null : reversePath.reverse();
 
         }
 

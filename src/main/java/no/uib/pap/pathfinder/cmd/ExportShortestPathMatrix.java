@@ -1,12 +1,8 @@
 package no.uib.pap.pathfinder.cmd;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
-import java.util.zip.DataFormatException;
 import no.uib.pap.pathfinder.ShortestPath;
 import no.uib.pap.pathfinder.io.network.NetworkPool;
-import no.uib.pap.pathfinder.io.path.PathFile;
 import no.uib.pap.pathfinder.model.graph.Graph;
 import no.uib.pap.pathfinder.util.ProgressHandler;
 
