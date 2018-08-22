@@ -11,7 +11,7 @@
 repo=/mnt/work/marc/pap/github/PathFinder
 
 # Execution parameters
-nThreads=24
+nThreads=32
 
 
 ## Functions
