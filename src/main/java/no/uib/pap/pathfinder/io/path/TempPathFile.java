@@ -6,6 +6,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.stream.IntStream;
+import static no.uib.pap.pathfinder.io.util.MemoryMappedFileUtils.closeBuffer;
 import no.uib.pap.pathfinder.model.graph.Path;
 
 /**
@@ -137,6 +138,8 @@ public class TempPathFile {
 
             }
 
+            closeBuffer(buffer);
+
             return new Path(pathIndexes, weight);
 
         } catch (Exception e) {
@@ -179,6 +182,8 @@ public class TempPathFile {
                 buffer.putInt(pathIndexes[i]);
 
             }
+
+            closeBuffer(buffer);
 
         } catch (Exception e) {
 

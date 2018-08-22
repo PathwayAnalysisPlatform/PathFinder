@@ -5,6 +5,7 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import static no.uib.pap.pathfinder.io.util.MemoryMappedFileUtils.closeBuffer;
 import no.uib.pap.pathfinder.model.graph.Path;
 
 /**
@@ -124,6 +125,8 @@ public class SeedPathFile {
 
             }
 
+            closeBuffer(buffer);
+
             return new Path(pathIndexes, weight);
 
         } catch (Exception e) {
@@ -156,6 +159,8 @@ public class SeedPathFile {
                 buffer.putInt(pathIndexes[i]);
 
             }
+
+            closeBuffer(buffer);
 
         } catch (Exception e) {
 
