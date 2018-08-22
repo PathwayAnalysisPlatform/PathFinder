@@ -3,16 +3,14 @@ package no.uib.pap.pathfinder;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import no.uib.pap.pathfinder.io.path.PathFile;
 import no.uib.pap.pathfinder.io.path.SeedPathFile;
-import no.uib.pap.pathfinder.io.path.TempPathFile;
 import no.uib.pap.pathfinder.model.graph.Graph;
 import no.uib.pap.pathfinder.model.graph.Path;
 import no.uib.pap.pathfinder.model.graph.Vertex;
@@ -30,21 +28,17 @@ public class ShortestPath {
      */
     private final Graph graph;
     /**
-     * The file where to save the paths during processing.
+     * Map of the seeds that have been explored.
      */
-    private final File tempFile;
+    private final HashMap<Integer, SeedPathFile> finishedSeeds;
     /**
-     * The mapped file where to save the paths during processing.
+     * The path of the file where paths should be stored.
      */
-    private final TempPathFile tempPathFile;
+    private final File resultFile;
     /**
-     * The path of the file where paths are stored.
+     * The folder where to store intermediate files.
      */
-    private final String filePath;
-    /**
-     * Set of indexes already processed.
-     */
-    private final HashSet<Integer> processedIndexes;
+    public final File tempFolder;
     /**
      * The number of vertices in the graph.
      */
@@ -61,10 +55,6 @@ public class ShortestPath {
      * The maximal path length.
      */
     public static final int maxDepth = 10;
-    /**
-     * Semaphore for the different threads to write to the path file.
-     */
-    private final Semaphore pathFileMutex = new Semaphore(1);
 
     /**
      * Constructor.
@@ -78,11 +68,15 @@ public class ShortestPath {
 
         nVertices = graph.vertices.length;
 
-        processedIndexes = new HashSet<>(nVertices);
-        filePath = pathFile.getAbsolutePath();
+        resultFile = pathFile;
 
-        tempFile = new File(filePath + "_temp");
-        tempPathFile = new TempPathFile(tempFile, nVertices, maxDepth);
+        tempFolder = new File(resultFile.getParent(), "temp");
+
+        if (!tempFolder.exists()) {
+            tempFolder.mkdirs();
+        }
+
+        finishedSeeds = new HashMap<>(nVertices);
 
     }
 
@@ -120,60 +114,19 @@ public class ShortestPath {
     }
 
     /**
-     * Stores the seed matrix in the main matrix.
-     *
-     * @param seedPathFile the seed matrix
-     * @param origin the origin vertex of this seed
-     */
-    private void storeSeedMatrix(SeedPathFile seedPathFile, int origin) {
-
-        try {
-
-            pathFileMutex.acquire();
-
-            for (int destination = 0; destination < nVertices; destination++) {
-
-                if (destination != origin) {
-
-                    Path seedPath = seedPathFile.getPath(destination);
-
-                    if (seedPath != null) {
-
-                        Path referencePath = tempPathFile.getPath(origin, destination);
-
-                        if (referencePath == null
-                                || referencePath.getWeight() > seedPath.getWeight()
-                                || referencePath.getWeight() == seedPath.getWeight() && referencePath.length() < seedPath.getWeight()) {
-
-                            tempPathFile.setPath(seedPath);
-
-                        }
-                    }
-                }
-            }
-
-            pathFileMutex.release();
-
-        } catch (Exception e) {
-
-            throw new RuntimeException(e);
-
-        }
-    }
-
-    /**
      * Builds the final file from the temp file.
      */
     private void wrap() {
 
-        File resultFile = new File(filePath);
         PathFile pathFile = new PathFile(resultFile, nVertices);
 
         for (int j = 1; j < nVertices; j++) {
 
             for (int i = 0; i < j; i++) {
 
-                Path path = tempPathFile.getPath(i, j);
+                SeedPathFile seedPathFile = finishedSeeds.get(i);
+
+                Path path = seedPathFile.getPath(j);
 
                 if (path == null) {
 
@@ -186,28 +139,41 @@ public class ShortestPath {
             }
         }
 
-        tempPathFile.close();
+        finishedSeeds.values().forEach(seedPathFile -> seedPathFile.close());
+
         pathFile.close();
 
         System.gc();
 
         try {
 
-            wait(10);
+            wait(100);
 
         } catch (Exception e) {
             // Ignore
         }
 
-        boolean success = tempFile.delete();
+        finishedSeeds.values().forEach(seedPathFile -> {
+
+            File tempFile = seedPathFile.file;
+            boolean success = tempFile.delete();
+
+            if (!success) {
+
+                System.out.println("Failed to delete " + tempFile + ".");
+                tempFile.deleteOnExit();
+
+            }
+        });
+
+        boolean success = tempFolder.delete();
 
         if (!success) {
 
-            System.out.println("Failed to delete " + tempFile + ".");
-            tempFile.deleteOnExit();
+            System.out.println("Failed to delete " + tempFolder + ".");
+            tempFolder.deleteOnExit();
 
         }
-
     }
 
     /**
@@ -224,10 +190,6 @@ public class ShortestPath {
          * The mapped file where to save the paths for this seed.
          */
         private final SeedPathFile seedPathFile;
-        /**
-         * The file where to save the paths for this seed.
-         */
-        private final File seedFilePath;
 
         /**
          * Constructor.
@@ -238,7 +200,7 @@ public class ShortestPath {
 
             this.origin = origin;
 
-            seedFilePath = new File(filePath + "_" + origin);
+            File seedFilePath = new File(tempFolder, Integer.toString(origin));
 
             seedPathFile = new SeedPathFile(seedFilePath, nVertices, maxDepth);
 
@@ -261,30 +223,7 @@ public class ShortestPath {
                     return;
                 }
 
-                storeSeedMatrix(seedPathFile, origin);
-
-                processedIndexes.add(origin);
-
-                seedPathFile.close();
-
-                System.gc();
-
-                try {
-
-                    wait(10);
-
-                } catch (Exception e) {
-                    // Ignore
-                }
-
-                boolean success = seedFilePath.delete();
-
-                if (!success) {
-
-                    System.out.println("Failed to delete " + seedFilePath + ".");
-                    seedFilePath.deleteOnExit();
-
-                }
+                finishedSeeds.put(origin, seedPathFile);
 
                 int tempProgress = (int) (1000.0 * ((double) origin) / nVertices);
                 if (tempProgress > progress) {
@@ -296,7 +235,7 @@ public class ShortestPath {
             } catch (Throwable e) {
 
                 System.out.println(origin + " Crashed.");
-                
+
                 e.printStackTrace();
 
                 crashed = true;
@@ -358,13 +297,15 @@ public class ShortestPath {
 
             int lastIndex = path.getEnd();
 
-            if (processedIndexes.contains(lastIndex)) {
+            SeedPathFile otherSeedPathFile = finishedSeeds.get(lastIndex);
+
+            if (otherSeedPathFile != null) {
 
                 for (int j = 0; j < nVertices; j++) {
 
                     if (!path.contains(j)) {
 
-                        Path pathExtension = tempPathFile.getPath(lastIndex, j);
+                        Path pathExtension = otherSeedPathFile.getPath(j);
 
                         if (pathExtension != null) {
 

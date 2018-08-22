@@ -16,6 +16,10 @@ import no.uib.pap.pathfinder.model.graph.Path;
 public class SeedPathFile {
 
     /**
+     * The file.
+     */
+    public final File file;
+    /**
      * The random access file.
      */
     private final RandomAccessFile raf;
@@ -47,6 +51,8 @@ public class SeedPathFile {
 
         try {
 
+            file = pathFile;
+            
             raf = new RandomAccessFile(pathFile, "rw");
             fc = raf.getChannel();
 
