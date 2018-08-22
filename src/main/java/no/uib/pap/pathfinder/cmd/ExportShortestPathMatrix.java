@@ -33,7 +33,6 @@ public class ExportShortestPathMatrix {
             espm.exportMatrices(nThreads);
 
         } catch (Throwable e) {
-            e.printStackTrace(System.out);
             e.printStackTrace();
         }
     }

@@ -296,6 +296,8 @@ public class ShortestPath {
             } catch (Throwable e) {
 
                 System.out.println(origin + " Crashed.");
+                
+                e.printStackTrace();
 
                 crashed = true;
 
