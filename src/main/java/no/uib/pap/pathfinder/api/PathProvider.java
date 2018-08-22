@@ -13,10 +13,9 @@ import no.uib.pap.pathfinder.model.graph.Path;
 /**
  * This class provides the shortest path based on a file created by PathFile.
  *
- * Note1: it is safe to use the path provider with multiple threads. Please note
- * that >12 threads might result in memory issues.
+ * Note 1: It is safe to use the path provider with multiple threads.
  *
- * Note2: the connection to the file seems to remain open for a bit of time
+ * Note 2: The connection to the file seems to remain open for a bit of time
  * after calling close. This might result eg in files not being deleted. gc and
  * waiting seem to help.
  *
