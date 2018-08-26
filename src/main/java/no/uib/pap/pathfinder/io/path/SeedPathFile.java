@@ -32,13 +32,21 @@ public class SeedPathFile {
      */
     private final int nVertices;
     /**
-     * The path length.
-     */
-    private final int fixedLength;
-    /**
      * The number of bytes used by one path.
      */
     private final int pathSize;
+    /**
+     * The weights of the paths.
+     */
+    private final double[] weights;
+    /**
+     * The lengths of the paths.
+     */
+    private final int[] lengths;
+    /**
+     * The seed vertice.
+     */
+    public final int origin;
 
     /**
      * Constructor.
@@ -46,19 +54,27 @@ public class SeedPathFile {
      * @param pathFile the file containing the paths
      * @param nVertices the number of vertices
      * @param fixedLength the depth if fixed, -1 otherwise
+     * @param origin the seed vertice
      */
-    public SeedPathFile(File pathFile, int nVertices, int fixedLength) {
+    public SeedPathFile(File pathFile, int nVertices, int fixedLength, int origin) {
 
         try {
 
             file = pathFile;
-            
+
             raf = new RandomAccessFile(pathFile, "rw");
             fc = raf.getChannel();
 
             this.nVertices = nVertices;
-            this.fixedLength = fixedLength;
-            this.pathSize = 8 + fixedLength * 4;
+            this.pathSize = (fixedLength - 2) * 4;
+
+            this.weights = new double[nVertices];
+            Arrays.fill(weights, Double.NaN);
+
+            this.lengths = new int[nVertices];
+            Arrays.fill(lengths, -1);
+
+            this.origin = origin;
 
         } catch (Exception e) {
 
@@ -81,6 +97,45 @@ public class SeedPathFile {
     }
 
     /**
+     * Returns the weight of a path.
+     *
+     * @param endPath the end index of the path.
+     *
+     * @return the weight of a path
+     */
+    public double getWeight(int endPath) {
+
+        return weights[endPath];
+
+    }
+
+    /**
+     * Returns the number of vertices in the path.
+     *
+     * @param endPath the end index of the path
+     *
+     * @return the number of vertices in the path
+     */
+    public int getLength(int endPath) {
+
+        return lengths[endPath];
+
+    }
+    
+    /**
+     * Indicates whether the given path has already been stored.
+     * 
+     * @param endPath the end index of the path
+     * 
+     * @return a boolean indicating whether the given path has already been stored
+     */
+    public boolean hasPath(int endPath) {
+        
+        return lengths[endPath] != -1;
+        
+    }
+
+    /**
      * Reads the path from the file.
      *
      * @param endPath the index of the last vertex in the path
@@ -89,46 +144,40 @@ public class SeedPathFile {
      */
     public Path getPath(int endPath) {
 
+        double weight = getWeight(endPath);
+
+        if (weight == Double.NaN) {
+            return null;
+        }
+
+        int length = getLength(endPath);
+
+        if (length == 2) {
+
+            int[] pathIndexes = new int[]{origin, endPath};
+
+        }
+
         try {
 
             long index = getIndex(endPath);
 
             MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, index, pathSize);
 
-            double weight = buffer.getDouble();
+            int[] pathIndexes = new int[length];
 
-            if (weight == 0.0) {
-                return null;
-            } else if (weight < 0.0) {
-                throw new IllegalArgumentException("Unexpected weight: " + weight + ".");
-            }
+            pathIndexes[0] = origin;
+            pathIndexes[length - 1] = endPath;
 
-            int[] pathIndexes = new int[fixedLength];
-
-            int end = -1;
-
-            for (int i = 0; i < fixedLength; i++) {
+            for (int i = 1; i < length - 1; i++) {
 
                 int vertice = buffer.getInt();
 
                 if (vertice < 0 || vertice > nVertices) {
-                    throw new IllegalArgumentException("Unexpected weight: " + weight + ".");
+                    throw new IllegalArgumentException("Unexpected vertex index: " + vertice + ".");
                 }
 
                 pathIndexes[i] = vertice;
-
-                if (vertice == endPath) {
-
-                    end = i;
-                    break;
-
-                }
-            }
-
-            if (end != -1) {
-
-                pathIndexes = Arrays.copyOf(pathIndexes, end + 1);
-
             }
 
             closeBuffer(buffer);
@@ -150,28 +199,37 @@ public class SeedPathFile {
      */
     public void setPath(Path path) {
 
-        try {
+        int lastVertex = path.getEnd();
 
-            long index = getIndex(path.getEnd());
+        weights[lastVertex] = path.getWeight();
 
-            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_WRITE, index, pathSize);
+        int length = path.length();
 
-            buffer.putDouble(path.getWeight());
+        lengths[lastVertex] = length;
 
-            int[] pathIndexes = path.getPath();
+        if (length > 2) {
 
-            for (int i = 0; i < pathIndexes.length; i++) {
+            try {
 
-                buffer.putInt(pathIndexes[i]);
+                long index = getIndex(lastVertex);
+
+                MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_WRITE, index, pathSize);
+
+                int[] pathIndexes = path.getPath();
+
+                for (int i = 1; i < length - 1; i++) {
+
+                    buffer.putInt(pathIndexes[i]);
+
+                }
+
+                closeBuffer(buffer);
+
+            } catch (Exception e) {
+
+                throw new RuntimeException(e);
 
             }
-
-            closeBuffer(buffer);
-
-        } catch (Exception e) {
-
-            throw new RuntimeException(e);
-
         }
     }
 
@@ -179,12 +237,12 @@ public class SeedPathFile {
      * Closes the connection to the file.
      */
     public void close() {
-        
+
         try {
-            
+
             fc.close();
             raf.close();
-            
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

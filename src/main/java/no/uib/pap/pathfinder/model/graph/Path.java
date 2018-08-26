@@ -73,9 +73,9 @@ public class Path {
     }
 
     /**
-     * Returns the number of vertices in the path.
+     * Returns the number of vertices in the path including start and end vertices.
      *
-     * @return the number of vertices in the path
+     * @return the number of vertices in the path including start and end vertices
      */
     public int length() {
 

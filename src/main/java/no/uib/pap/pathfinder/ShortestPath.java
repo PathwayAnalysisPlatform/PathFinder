@@ -54,7 +54,7 @@ public class ShortestPath {
     /**
      * The maximal path length.
      */
-    public static final int maxDepth = 10;
+    public static final int maxDepth = 12;
 
     /**
      * Constructor.
@@ -134,6 +134,12 @@ public class ShortestPath {
 
                 }
 
+                if (path.length() >= maxDepth-2) {
+
+                    throw new IllegalArgumentException("Long path between " + i + " and " + j + ", consider extending the maximal length.");
+
+                }
+
                 pathFile.setPath(path);
 
             }
@@ -183,10 +189,6 @@ public class ShortestPath {
     private class Seed implements Runnable {
 
         /**
-         * The index of the origin vertex.
-         */
-        private final int origin;
-        /**
          * The mapped file where to save the paths for this seed.
          */
         private final SeedPathFile seedPathFile;
@@ -198,11 +200,9 @@ public class ShortestPath {
          */
         public Seed(int origin) {
 
-            this.origin = origin;
-
             File seedFilePath = new File(tempFolder, Integer.toString(origin));
 
-            seedPathFile = new SeedPathFile(seedFilePath, nVertices, maxDepth);
+            seedPathFile = new SeedPathFile(seedFilePath, nVertices, maxDepth, origin);
 
         }
 
@@ -215,7 +215,7 @@ public class ShortestPath {
 
             try {
 
-                System.out.print(origin + " ");
+                System.out.print(seedPathFile.origin + " ");
 
                 computeShortestPaths();
 
@@ -223,9 +223,9 @@ public class ShortestPath {
                     return;
                 }
 
-                finishedSeeds.put(origin, seedPathFile);
+                finishedSeeds.put(seedPathFile.origin, seedPathFile);
 
-                int tempProgress = (int) (1000.0 * ((double) origin) / nVertices);
+                int tempProgress = (int) (1000.0 * ((double) seedPathFile.origin) / nVertices);
                 if (tempProgress > progress) {
                     progress = tempProgress;
                     double tempProgressDouble = (tempProgress) / 10.0;
@@ -234,7 +234,7 @@ public class ShortestPath {
 
             } catch (Throwable e) {
 
-                System.out.println(origin + " Crashed.");
+                System.out.println(seedPathFile.origin + " Crashed.");
 
                 e.printStackTrace();
 
@@ -249,7 +249,7 @@ public class ShortestPath {
          */
         public void computeShortestPaths() {
 
-            Vertex originVertex = graph.vertices[origin];
+            Vertex originVertex = graph.vertices[seedPathFile.origin];
 
             ArrayList<Path> pathsToExpand = new ArrayList<>();
 
@@ -258,14 +258,16 @@ public class ShortestPath {
                 int neighbor = originVertex.neighbors[i];
                 double weight = originVertex.weights[i];
 
-                Path path = seedPathFile.getPath(neighbor);
+                boolean found = seedPathFile.hasPath(neighbor);
+                double currentWeight = seedPathFile.getWeight(neighbor);
+                int currentLength = seedPathFile.getLength(neighbor);
 
-                if (path == null
-                        || path.getWeight() > weight
-                        || path.getWeight() == weight && path.length() > 2) {
+                if (!found
+                        || currentWeight > weight
+                        || currentWeight == weight && currentLength > 2) {
 
                     int[] pathIndexes = new int[2];
-                    pathIndexes[0] = origin;
+                    pathIndexes[0] = seedPathFile.origin;
                     pathIndexes[1] = neighbor;
                     Path startPath = new Path(pathIndexes, weight);
 
@@ -314,11 +316,14 @@ public class ShortestPath {
                             if (totalLength <= maxDepth) {
 
                                 double totalWeight = pathExtension.getWeight() + path.getWeight();
-                                Path seedPath = seedPathFile.getPath(j);
 
-                                if (seedPath == null
-                                        || seedPath.getWeight() > totalWeight
-                                        || seedPath.getWeight() == totalWeight && seedPath.length() > totalLength) {
+                                boolean found = seedPathFile.hasPath(j);
+                                double currentWeight = seedPathFile.getWeight(j);
+                                int currentLength = seedPathFile.getLength(j);
+
+                                if (!found
+                                        || currentWeight > totalWeight
+                                        || currentWeight == totalWeight && currentLength > totalLength) {
 
                                     int[] newIndexes = Arrays.copyOf(path.getPath(), totalLength);
                                     System.arraycopy(pathExtension.getPath(), 0, newIndexes, path.length(), pathExtension.length());
@@ -354,11 +359,14 @@ public class ShortestPath {
 
                             double weight = lastVertex.weights[i];
                             double totalWeight = weight + path.getWeight();
-                            Path seedPath = seedPathFile.getPath(neighbor);
 
-                            if (seedPath == null
-                                    || seedPath.getWeight() > totalWeight
-                                    || seedPath.getWeight() == totalWeight && seedPath.length() > totalLength) {
+                            boolean found = seedPathFile.hasPath(neighbor);
+                            double currentWeight = seedPathFile.getWeight(neighbor);
+                            int currentLength = seedPathFile.getLength(neighbor);
+
+                            if (!found
+                                    || currentWeight > totalWeight
+                                    || currentWeight == totalWeight && currentLength > totalLength) {
 
                                 int[] newIndexes = Arrays.copyOf(path.getPath(), totalLength);
                                 newIndexes[path.length()] = neighbor;
