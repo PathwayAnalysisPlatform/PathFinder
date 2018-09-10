@@ -138,36 +138,37 @@ public class SeedPathFile {
     /**
      * Reads the path from the file.
      *
-     * @param endPath the index of the last vertex in the path
+     * @param lastVertex the index of the last vertex in the path
      *
      * @return the path ending on the desired vertex
      */
-    public Path getPath(int endPath) {
+    public Path getPath(int lastVertex) {
 
-        double weight = getWeight(endPath);
+        double weight = getWeight(lastVertex);
 
-        if (weight == Double.NaN) {
+        int length = getLength(lastVertex);
+
+        if (length == -1) {
             return null;
         }
 
-        int length = getLength(endPath);
-
         if (length == 2) {
 
-            int[] pathIndexes = new int[]{origin, endPath};
+            int[] pathIndexes = new int[]{origin, lastVertex};
+            return new Path(pathIndexes, weight);
 
         }
 
         try {
 
-            long index = getIndex(endPath);
+            long index = getIndex(lastVertex);
 
             MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, index, pathSize);
 
             int[] pathIndexes = new int[length];
 
             pathIndexes[0] = origin;
-            pathIndexes[length - 1] = endPath;
+            pathIndexes[length - 1] = lastVertex;
 
             for (int i = 1; i < length - 1; i++) {
 
